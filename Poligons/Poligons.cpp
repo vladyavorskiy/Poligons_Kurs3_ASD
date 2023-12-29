@@ -13,23 +13,20 @@ public:
 
     Point(double x, double y) : x(x), y(y){}
 
+    bool operator==(const Point& other) const {
+        return x == other.x && y == other.y;
+    }
+
 
 };
 
 class polygon {
 private:
-    vector<shared_ptr<Point>> vertices;
-    bool isConvex;
+    vector<Point> vertices;
+    bool convexity;
 
-public:
-    // Конструктор
-    polygon(bool convex = true) : isConvex(convex) {}
-
-    // Деструктор
-    ~polygon() = default;
-
-    vector<pair<shared_ptr<Point>, shared_ptr<Point>>> findPossibleInsertionPoints(double newX, double newY) {
-        vector<pair<shared_ptr<Point>, shared_ptr<Point>>> possibleInsertionPoints;
+    vector<pair<Point, Point>> findPossibleInsertionPoints(double newX, double newY) {
+        vector<pair<Point, Point>> possibleInsertionPoints;
         int count = vertices.size();
         for (int i = 0; i < count; i++) {
             int j = (i + 1) % count;
@@ -39,7 +36,7 @@ public:
                 if ((k1 == i) || (l1 == i)) {
                     continue;
                 }
-                if (isIntersect(newX, newY, vertices[i]->x, vertices[i]->y, vertices[k1]->x, vertices[k1]->y, vertices[l1]->x, vertices[l1]->y)) {
+                if (isIntersect(newX, newY, vertices[i].x, vertices[i].y, vertices[k1].x, vertices[k1].y, vertices[l1].x, vertices[l1].y)) {
                     flag = false;
                     break;
                 }
@@ -50,7 +47,7 @@ public:
                     if ((k2 == j) || (l2 == j)) {
                         continue;
                     }
-                    if (isIntersect(newX, newY, vertices[j]->x, vertices[j]->y, vertices[k2]->x, vertices[k2]->y, vertices[l2]->x, vertices[l2]->y)) {
+                    if (isIntersect(newX, newY, vertices[j].x, vertices[j].y, vertices[k2].x, vertices[k2].y, vertices[l2].x, vertices[l2].y)) {
                         flag = false;
                         break;
                     }
@@ -67,7 +64,7 @@ public:
     bool isIntersect(double x1, double y1, double x2, double y2, double x3, double y3, double x4, double y4) {
         //x1=newx1 y1=newy1 //x2=i.x  y2=i.y
         //x3=k.x  y3=k.y //x4=l.x  y4=l.y
-        double verx1 = ((x3 - x1) * (y2 - y1)) - ((y3 - y1) * (x2 -x1));
+        double verx1 = ((x3 - x1) * (y2 - y1)) - ((y3 - y1) * (x2 - x1));
         double verx2 = ((x3 - x1) * (y4 - y3)) - ((y3 - y1) * (x4 - x3));
         double niz = ((y4 - y3) * (x2 - x1)) - ((x4 - x3) * (y2 - y1));
 
@@ -80,16 +77,162 @@ public:
     }
 
 
+    double crossProduct(const Point& A, const Point& B, const Point& C) {
+        return (B.x - A.x) * (C.y - A.y) - (B.y - A.y) * (C.x - A.x);
+    }
+
+    bool pointInside(double x, double y) {
+        int count = vertices.size();
+        bool inside = false;
+        for (int i = 0; i < count; i++) {
+            int j = (i + 1) % count;
+            if (x == vertices[i].x && y == vertices[i].y) {
+                return true;
+            }
+            if (((vertices[i].y > y) != (vertices[j].y > y)) &&
+                (x < vertices[i].x + (vertices[j].x - vertices[i].x) * (y - vertices[i].y) / (vertices[j].y - vertices[i].y)))
+                inside = not inside;
+        }
+        return inside;
+    }
+
+
+    vector<Point> pointIntersect(polygon polySec) {
+        vector<Point> intersectVertices;
+
+        int count_1 = vertices.size();
+        int count_2 = polySec.vertices.size();
+        for (int i1 = 0; i1 < count_1; i1++) {
+            int j2 = (i1 + 1) % count_1;
+            for (int i3 = 0; i3 < count_2; i3++) {
+                int j4 = (i3 + 1) % count_2;
+                if (isIntersect(vertices[i1].x, vertices[i1].y, vertices[j2].x, vertices[j2].y, polySec.vertices[i3].x, polySec.vertices[i3].y, polySec.vertices[j4].x, polySec.vertices[j4].y)) {
+                    if (vertices[i1].x == polySec.vertices[i3].x && vertices[i1].y == polySec.vertices[i3].y) {
+                        intersectVertices.push_back(Point(vertices[i1].x, vertices[i1].y));
+                    }
+                    else if (vertices[i1].x == polySec.vertices[j4].x && vertices[i1].y == polySec.vertices[j4].y) {
+                        intersectVertices.push_back(Point(vertices[i1].x, vertices[i1].y));
+                    }
+                    else if (vertices[j2].x == polySec.vertices[j4].x && vertices[j2].y == polySec.vertices[j4].y) {
+                        intersectVertices.push_back(Point(vertices[j2].x, vertices[j2].y));
+                    }
+                    else if (vertices[j2].x == polySec.vertices[i3].x && vertices[j2].y == polySec.vertices[i3].y) {
+                        intersectVertices.push_back(Point(vertices[j2].x, vertices[j2].y));
+                    }
+                    else {
+                        double m1 = (vertices[j2].y - vertices[i1].y) / (vertices[j2].x - vertices[i1].x);
+                        double m2 = (polySec.vertices[j4].y - polySec.vertices[i3].y) / (polySec.vertices[j4].x - polySec.vertices[i3].x);
+
+                        double b1;
+                        double b2;
+                        double x;
+                        double y;
+                        if (isinf(m1)) {
+                            b2 = polySec.vertices[i3].y - m2 * polySec.vertices[i3].x;
+                            x = vertices[i1].x;
+                            y = x * m2 + b2;
+                        }
+                        else if (isinf(m2)) {
+                            b1 = vertices[i1].y - m1 * vertices[i1].x;
+                            x = polySec.vertices[i3].x;
+                            y = x * m1 + b1;
+                        }
+                        else {
+                            b1 = vertices[i1].y - m1 * vertices[i1].x;
+                            b2 = polySec.vertices[i3].y - m2 * polySec.vertices[i3].x;
+
+                            x = (b1 - b2) / (m2 - m1);
+                            y = x * m1 + b1;
+                        }
+
+                        intersectVertices.push_back(Point(x, y));
+                        //cout << "(" << x << "; " << y << ")" << endl;
+                    }
+                }
+
+            }
+        }
+        return intersectVertices;
+    }
+
+    void removeDuplicates() {
+        // Сортируем вектор, чтобы соседние дубликаты стали смежными
+        sort(vertices.begin(), vertices.end(),
+            [](const Point& a, const Point& b) {
+                return a.x < b.x || (a.x == b.x && a.y < b.y);
+            });
+
+        // Используем std::unique для перемещения дубликатов в конец вектора
+        auto last = unique(vertices.begin(), vertices.end(),
+            [](const Point& a, const Point& b) {
+                return a.x == b.x && a.y == b.y;
+            });
+
+        // Удаляем дубликаты из вектора
+        vertices.erase(last, vertices.end());
+    }
+
+    void orderPointsClockwise() {
+        Point center = findPolygonCenter();
+
+        std::sort(vertices.begin(), vertices.end(),
+            [this, center](const auto& a, const auto& b) {
+                return calculateAngle(a, center) < calculateAngle(b, center);
+            });
+    }
+
+    double calculateAngle(const Point& point, const Point& center) {
+        return atan2(point.y - center.y, point.x - center.x);
+    }
+
+public:
+    // Конструктор
+    polygon(bool convex = false) : convexity(convex) {}
+
+    // Деструктор
+    ~polygon() = default;
+
+    // Проверка выпуклости многоугольника
+    bool isConvex() {
+        int n = vertices.size();
+        if (n < 3) {
+            // Многоугольник с меньшим числом вершин не считается выпуклым
+            return false;
+        }
+
+        bool hasPositive = false;
+        bool hasNegative = false;
+
+        for (int i = 0; i < n; ++i) {
+            double result = crossProduct(vertices[i], vertices[(i + 1) % n], vertices[(i + 2) % n]);
+            if (result > 0) {
+                hasPositive = true;
+            }
+            else if (result < 0) {
+                hasNegative = true;
+            }
+
+            // Если обнаружены оба случая, то многоугольник невыпуклый
+            if (hasPositive && hasNegative) {
+                return false;
+            }
+        }
+
+        // Если знаки одинаковы или все нулевые, то многоугольник выпуклый
+        return true;
+    }
+
+
     void addVertex(double x, double y) {
         int count = vertices.size();
         if (count == 0) {
-            vertices.push_back(make_shared<Point>(x, y));
+            vertices.push_back(Point(x, y));
         }
         else if (count < 3) {
-            vertices.push_back(make_shared<Point>(x, y));
+            vertices.push_back(Point(x, y));
         }
         else {
-            vector<pair<shared_ptr<Point>, shared_ptr<Point>>> possiblePoints = findPossibleInsertionPoints(x, y);
+            vector<pair<Point, Point>> possiblePoints = findPossibleInsertionPoints(x, y);
             int i;
             if (possiblePoints.size() == 0) {
                 cout << "Невозможно вставить точку с координатами (" << x << ", " << y << ") : "<< endl;
@@ -101,7 +244,7 @@ public:
             else {
                 cout << "Возможное положение новой точки (" << x << ", " << y << "):" << endl;
                 for (int i = 0; i < possiblePoints.size(); ++i) {
-                    cout << i << ". " << "Между вершинами: " << "(" << possiblePoints[i].first->x << ", " << possiblePoints[i].first->y << ") и (" << possiblePoints[i].second->x << ", " << possiblePoints[i].second->y << ")" << endl;
+                    cout << i << ". " << "Между вершинами: " << "(" << possiblePoints[i].first.x << ", " << possiblePoints[i].first.y << ") и (" << possiblePoints[i].second.x << ", " << possiblePoints[i].second.y << ")" << endl;
                 }
                 cin >> i;
             }
@@ -109,8 +252,8 @@ public:
 
             auto insertPosition = find(vertices.begin(), vertices.end(), possiblePoints[i].first);
             int indexPos = distance(vertices.begin(), insertPosition);
-            vertices.insert(insertPosition + 1, make_shared<Point>(x, y));
-            
+            vertices.insert(insertPosition + 1, Point(x, y));
+            isConvex();
         }
         return;
     }
@@ -119,15 +262,15 @@ public:
     void addVertexRandom(double x, double y) {
         int count = vertices.size();
         if (count == 0) {
-            vertices.push_back(make_shared<Point>(x, y));
+            vertices.push_back(Point(x, y));
         }
         else if (count < 3) {
-            vertices.push_back(make_shared<Point>(x, y));
+            vertices.push_back(Point(x, y));
             auto firstIndex = 0;
             auto lastIndex = count - 1;
         }
         else {
-            vector<pair<shared_ptr<Point>, shared_ptr<Point>>> possiblePoints = findPossibleInsertionPoints(x, y);
+            vector<pair<Point, Point>> possiblePoints = findPossibleInsertionPoints(x, y);
 
             random_device rd;
             mt19937 generator(rd());
@@ -137,9 +280,8 @@ public:
 
             auto insertPosition = find(vertices.begin(), vertices.end(), possiblePoints[i].first);
             int indexPos = distance(vertices.begin(), insertPosition);
-            vertices.insert(insertPosition + 1, make_shared<Point>(x, y));
-
-
+            vertices.insert(insertPosition + 1, Point(x, y));
+            isConvex();
 
         }
         return;
@@ -157,13 +299,14 @@ public:
                     if ((k == i) || (l == i) || (k == j) || (l == j)) {
                         continue;
                     }
-                    if (isIntersect(vertices[i]->x, vertices[i]->y, vertices[j]->x, vertices[j]->y, vertices[k]->x, vertices[k]->y, vertices[l]->x, vertices[l]->y)) {
+                    if (isIntersect(vertices[i].x, vertices[i].y, vertices[j].x, vertices[j].y, vertices[k].x, vertices[k].y, vertices[l].x, vertices[l].y)) {
                         flag = false;
                         break;
                     }
                 }
                 if (flag) {
                     vertices.erase(vertices.begin() + index);
+                    isConvex();
                     return;
                 }
                 else {
@@ -181,7 +324,7 @@ public:
         int count = vertices.size();
         bool flag = true;
         for (int n = 0; n < count; n++) {
-            if (vertices[n]->x == x && vertices[n]->y == y) {
+            if (vertices[n].x == x && vertices[n].y == y) {
                 int i = (n + count - 1) % count;
                 int j = (n + 1) % count;
                 for (int k = 0; k < count; k++) {
@@ -189,13 +332,14 @@ public:
                     if ((k == i) || (l == i) || (k == j) || (l == j)) {
                         continue;
                     }
-                    if (isIntersect(vertices[i]->x, vertices[i]->y, vertices[j]->x, vertices[j]->y, vertices[k]->x, vertices[k]->y, vertices[l]->x, vertices[l]->y)) {
+                    if (isIntersect(vertices[i].x, vertices[i].y, vertices[j].x, vertices[j].y, vertices[k].x, vertices[k].y, vertices[l].x, vertices[l].y)) {
                         flag = false;
                         break;
                     }
                 }
                 if (flag) {
                     vertices.erase(vertices.begin() + n);
+                    isConvex();
                     return;
                 }
                 else {
@@ -209,7 +353,7 @@ public:
 
     // Метод для нахождения площади многоугольника
     double calculateArea() const {
-        if (!isConvex) {
+        if (!convexity) {
             std::cerr << "Cannot calculate area for a non-convex polygon." << std::endl;
             return 0.0;
         }
@@ -219,7 +363,7 @@ public:
 
         for (int i = 0; i < n; ++i) {
             int j = (i + 1) % n;
-            area += (vertices[i]->x * vertices[j]->y - vertices[j]->x * vertices[i]->y);
+            area += (vertices[i].x * vertices[j].y - vertices[j].x * vertices[i].y);
         }
 
         /*for (int i = 0; i < n; ++i) {
@@ -238,8 +382,8 @@ public:
 
         for (int i = 0; i < n; ++i) {
             int j = (i + 1) % n;
-            double dx = vertices[j]->x - vertices[i]->x;
-            double dy = vertices[j]->y - vertices[i]->y;
+            double dx = vertices[j].x - vertices[i].x;
+            double dy = vertices[j].y - vertices[i].y;
             perimeter += sqrt(dx * dx + dy * dy);
         }
 
@@ -256,92 +400,16 @@ public:
         }
 
         for (int i = 0; i < count;i++) {
-            cout << i << ": (" << vertices[i]->x << ", " << vertices[i]->y << ")" << endl;
+            cout << i << ": (" << vertices[i].x << ", " << vertices[i].y << ")" << endl;
         }
 
         cout << "For Desmos:" << endl;
         cout << "polygon(";
         for (int i = 0; i < count - 1; ++i) {
-            cout << "(" << vertices[i]->x << ", " << vertices[i]->y << "), ";
+            cout << "(" << vertices[i].x << ", " << vertices[i].y << "), ";
         }
-        cout << "(" << vertices[count-1]->x << ", " << vertices[count-1]->y << "))" << endl << endl;
+        cout << "(" << vertices[count-1].x << ", " << vertices[count-1].y << "))" << endl << endl;
     }
-
-   
-    bool pointInside(double x, double y) {
-        int count = vertices.size();
-        bool inside = false;
-        for (int i = 0; i < count; i++) {
-            int j = (i + 1) % count;
-            if (x == vertices[i]->x && y == vertices[i]->y) {
-                return true;
-            }
-            if (((vertices[i]->y > y) != (vertices[j]->y > y)) && 
-                (x < vertices[i]->x + (vertices[j]->x - vertices[i]->x) * (y - vertices[i]->y) / (vertices[j]->y - vertices[i]->y)))
-                inside = not inside;
-        }
-        return inside;
-    }
-
-
-    vector<shared_ptr<Point>> pointIntersect(polygon polySec) {
-        vector<shared_ptr<Point>> intersectVertices;
-
-        int count_1 = vertices.size();
-        int count_2 = polySec.vertices.size();
-        for (int i1 = 0; i1 < count_1; i1++) {
-            int j2 = (i1 + 1) % count_1;
-            for (int i3 = 0; i3 < count_2; i3++) {
-                int j4 = (i3 + 1) % count_2;
-                if (isIntersect(vertices[i1]->x, vertices[i1]->y, vertices[j2]->x, vertices[j2]->y, polySec.vertices[i3]->x, polySec.vertices[i3]->y, polySec.vertices[j4]->x, polySec.vertices[j4]->y)) {
-                    if (vertices[i1]->x == polySec.vertices[i3]->x && vertices[i1]->y == polySec.vertices[i3]->y) {
-                        intersectVertices.push_back(make_shared<Point>(vertices[i1]->x, vertices[i1]->y));
-                    }
-                    else if (vertices[i1]->x == polySec.vertices[j4]->x && vertices[i1]->y == polySec.vertices[j4]->y) {
-                        intersectVertices.push_back(make_shared<Point>(vertices[i1]->x, vertices[i1]->y));
-                    }
-                    else if (vertices[j2]->x == polySec.vertices[j4]->x && vertices[j2]->y == polySec.vertices[j4]->y) {
-                        intersectVertices.push_back(make_shared<Point>(vertices[j2]->x, vertices[j2]->y));
-                    }
-                    else if (vertices[j2]->x == polySec.vertices[i3]->x && vertices[j2]->y == polySec.vertices[i3]->y) {
-                        intersectVertices.push_back(make_shared<Point>(vertices[j2]->x, vertices[j2]->y));
-                    }
-                    else {
-                        double m1 = (vertices[j2]->y - vertices[i1]->y) / (vertices[j2]->x - vertices[i1]->x);
-                        double m2 = (polySec.vertices[j4]->y - polySec.vertices[i3]->y) / (polySec.vertices[j4]->x - polySec.vertices[i3]->x);
-
-                        double b1;
-                        double b2;
-                        double x;
-                        double y;
-                        if (isinf(m1)) {
-                            b2 = polySec.vertices[i3]->y - m2 * polySec.vertices[i3]->x;
-                            x = vertices[i1]->x;
-                            y = x * m2 + b2;
-                        }
-                        else if (isinf(m2)) {
-                            b1 = vertices[i1]->y - m1 * vertices[i1]->x;
-                            x = polySec.vertices[i3]->x;
-                            y = x * m1 + b1;
-                        }
-                        else {
-                            b1 = vertices[i1]->y - m1 * vertices[i1]->x;
-                            b2 = polySec.vertices[i3]->y - m2 * polySec.vertices[i3]->x;
-
-                            x = (b1 - b2) / (m2 - m1);
-                            y = x * m1 + b1;
-                        }
-
-                        intersectVertices.push_back(make_shared<Point>(x, y));
-                        //cout << "(" << x << "; " << y << ")" << endl;
-                    }
-                }
-
-            }
-        }
-        return intersectVertices;
-    }
-
 
     polygon intersectionPolygons(polygon polySec) {
         polygon intersectionPolygon(true);
@@ -349,12 +417,12 @@ public:
         int count_2 = polySec.vertices.size();
 
         for (int i = 0; i < count_1; i++) {
-            if (polySec.pointInside(vertices[i]->x, vertices[i]->y)) {
+            if (polySec.pointInside(vertices[i].x, vertices[i].y)) {
                 intersectionPolygon.vertices.push_back(vertices[i]);
             }
         }
         for (int j = 0; j < count_2; j++) {
-            if (pointInside(polySec.vertices[j]->x, polySec.vertices[j]->y)) {
+            if (pointInside(polySec.vertices[j].x, polySec.vertices[j].y)) {
                 intersectionPolygon.vertices.push_back(polySec.vertices[j]);
             }
         }
@@ -362,33 +430,16 @@ public:
         if (intersectionPolygon.vertices.size() == 0) {
             return intersectionPolygon;
         }
-        vector<shared_ptr<Point>> intersectVertices = pointIntersect(polySec);
+        vector<Point> intersectVertices = pointIntersect(polySec);
         
         intersectionPolygon.vertices.insert(intersectionPolygon.vertices.end(), intersectVertices.begin(), intersectVertices.end());
         
         intersectionPolygon.removeDuplicates();
 
-        intersectionPolygon.orderPointsClockwise();
+        intersectionPolygon.orderPointsClockwise(); 
+        intersectionPolygon.isConvex();
 
         return intersectionPolygon;
-    }
-
-   
-    void removeDuplicates() {
-        // Сортируем вектор, чтобы соседние дубликаты стали смежными
-        sort(vertices.begin(), vertices.end(),
-            [](const shared_ptr<Point>& a, const shared_ptr<Point>& b) {
-                return a->x < b->x || (a->x == b->x && a->y < b->y);
-            });
-
-        // Используем std::unique для перемещения дубликатов в конец вектора
-        auto last = unique(vertices.begin(), vertices.end(),
-            [](const shared_ptr<Point>& a, const shared_ptr<Point>& b) {
-                return a->x == b->x && a->y == b->y;
-            });
-
-        // Удаляем дубликаты из вектора
-        vertices.erase(last, vertices.end());
     }
 
 
@@ -398,12 +449,12 @@ public:
         int count_2 = polySec.vertices.size();
 
         for (int i = 0; i < count_1; i++) {
-            if (polySec.pointInside(vertices[i]->x, vertices[i]->y) == false) {
+            if (polySec.pointInside(vertices[i].x, vertices[i].y) == false) {
                 unionPolygon.vertices.push_back(vertices[i]);
             }
         }
         for (int j = 0; j < count_2; j++) {
-            if (pointInside(polySec.vertices[j]->x, polySec.vertices[j]->y) == false) {
+            if (pointInside(polySec.vertices[j].x, polySec.vertices[j].y) == false) {
                 unionPolygon.vertices.push_back(polySec.vertices[j]);
             }
         }
@@ -412,10 +463,10 @@ public:
             unionPolygon.vertices.clear();
             return unionPolygon;
         }
-        vector<shared_ptr<Point>> intersectVertices = pointIntersect(polySec);
+        vector<Point> intersectVertices = pointIntersect(polySec);
         if (intersectVertices.size() == 2 &&
-            intersectVertices[0]->x == intersectVertices[1]->x &&
-            intersectVertices[0]->y == intersectVertices[1]->y) {
+            intersectVertices[0].x == intersectVertices[1].x &&
+            intersectVertices[0].y == intersectVertices[1].y) {
             unionPolygon.vertices.clear();
             return unionPolygon;
         }
@@ -424,42 +475,27 @@ public:
 
         unionPolygon.removeDuplicates();
 
-
-
         unionPolygon.orderPointsClockwise();
+        unionPolygon.isConvex();
 
         return unionPolygon;
     }
 
 
-    double calculateAngle(const shared_ptr<Point>& point, const shared_ptr<Point>& center) {
-        return atan2(point->y - center->y, point->x - center->x);
-    }
-
-    shared_ptr<Point> findPolygonCenter() {
+    Point findPolygonCenter() {
         double centerX = 0.0, centerY = 0.0;
         int n = vertices.size();
 
         for (auto& vertex : vertices) {
-            centerX += vertex->x;
-            centerY += vertex->y;
+            centerX += vertex.x;
+            centerY += vertex.y;
         }
 
         centerX /= n;
         centerY /= n;
 
-        return make_shared<Point>(centerX, centerY);
+        return Point(centerX, centerY);
     }
-
-    void orderPointsClockwise() {
-        shared_ptr<Point> center = findPolygonCenter();
-
-        std::sort(vertices.begin(), vertices.end(),
-            [this, center](const auto& a, const auto& b) {
-                return calculateAngle(a, center) < calculateAngle(b, center);
-            });
-    }
-
 
 
 };
@@ -520,10 +556,38 @@ int main() {
     poly2.addVertex(12,5);
     poly2.addVertex(10,0);
 
+    poly2.printPolygonVertex();*/
+
+
+
+
+    polygon poly(true);
+    poly.addVertex(0, 0);
+    cout << poly.isConvex() << endl;
+    poly.addVertex(5, 1);
+    cout << poly.isConvex() << endl;
+    poly.addVertex(7, 5);
+    cout << poly.isConvex() << endl;
+    poly.addVertex(0, 7);
+    cout << poly.isConvex() << endl;
+    //poly.addVertex(3, 3);
+    poly.addVertex(2, 0);
+    cout << poly.isConvex() << endl;
+
+    poly.printPolygonVertex();
+    cout << "max:  " << poly.findPolygonCenter().x << " " << poly.findPolygonCenter().y << endl;
+
+    /*polygon poly2(true);
+    poly2.addVertex(4, 3);
+    poly2.addVertex(7, 8);
+    poly2.addVertex(8, 2);
+
     poly2.printPolygonVertex();
+    cout << poly2.isConvex() << endl;*/
 
 
-    poly.pointIntersect(poly2);*/
+
+    //poly.pointIntersect(poly2);
 
 
 
@@ -565,6 +629,23 @@ int main() {
     poly2.printPolygonVertex();*/
 
 
+
+    /*polygon poly(true);
+    poly.addVertex(0, 0);
+    poly.addVertex(0, 4);
+    poly.addVertex(4, 4);
+    poly.addVertex(4, 0);
+
+    poly.printPolygonVertex();
+
+    polygon poly2(true);
+    poly2.addVertex(4, 4);
+    poly2.addVertex(4, 3);
+    poly2.addVertex(3, 3);
+    poly2.addVertex(3, 4);
+
+    poly2.printPolygonVertex();*/
+
     
 
     /*polygon poly(true);
@@ -583,7 +664,7 @@ int main() {
 
     poly2.printPolygonVertex();*/
 
-    polygon poly(true);
+    /*polygon poly(true);
     poly.addVertex(0, 0);
     poly.addVertex(0, 4);
     poly.addVertex(4, 4);
@@ -597,7 +678,7 @@ int main() {
     poly2.addVertex(8, 8);
     poly2.addVertex(8, 4);
 
-    poly2.printPolygonVertex();
+    poly2.printPolygonVertex();*/
 
 
     /*polygon poly(true);
@@ -735,30 +816,30 @@ int main() {
 
 
 
-    polygon polyInter(true);
+    //polygon polyInter(true);
 
-    polyInter = poly.intersectionPolygons(poly2);
-    
-    //cout << polyInter.findPolygonCenter()->x << " " << polyInter.findPolygonCenter()->y << endl;
-    
-    cout << polyInter.calculateArea() << endl;
-    cout << polyInter.calculatePerimeter() << endl;
-    cout << endl;
-    polyInter.printPolygonVertex();
-    cout << "max" << polyInter.findPolygonCenter()->x << " " << polyInter.findPolygonCenter()->y << endl;
-    cout << endl;
+    //polyInter = poly.intersectionPolygons(poly2);
+    //
+    ////cout << polyInter.findPolygonCenter()->x << " " << polyInter.findPolygonCenter()->y << endl;
+    //
+    //cout << polyInter.calculateArea() << endl;
+    //cout << polyInter.calculatePerimeter() << endl;
+    //cout << endl;
+    //polyInter.printPolygonVertex();
+    //cout << "max" << polyInter.findPolygonCenter().x << " " << polyInter.findPolygonCenter().y << endl;
+    //cout << endl;
 
-    polygon polyUni(true);
+    //polygon polyUni(true);
 
-    polyUni = poly.unionPolygons(poly2);
-    cout << polyUni.findPolygonCenter()->x << " " << polyUni.findPolygonCenter()->y << endl;
+    //polyUni = poly.unionPolygons(poly2);
+    //cout << polyUni.findPolygonCenter().x << " " << polyUni.findPolygonCenter().y << endl;
 
-    cout << polyUni.calculateArea() << endl;
-    cout << polyUni.calculatePerimeter() << endl;
-    cout << endl;
+    //cout << polyUni.calculateArea() << endl;
+    //cout << polyUni.calculatePerimeter() << endl;
+    //cout << endl;
 
-    polyUni.printPolygonVertex();
-    cout << endl;
+    //polyUni.printPolygonVertex();
+    //cout << endl;
 
 
 
