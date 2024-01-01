@@ -16,15 +16,14 @@ public:
     bool operator==(const Point& other) const {
         return x == other.x && y == other.y;
     }
-
-
 };
 
-class polygon {
+class Polygon {
 private:
     vector<Point> vertices;
     bool convexity;
 
+    // Нахождение возможных позиция для добавления новой вершины
     vector<pair<Point, Point>> findPossibleInsertionPoints(double newX, double newY) {
         vector<pair<Point, Point>> possibleInsertionPoints;
         int count = vertices.size();
@@ -60,7 +59,7 @@ private:
         return possibleInsertionPoints;
     }
 
-
+    // Проверка пересечения двух отрезков
     bool isIntersect(double x1, double y1, double x2, double y2, double x3, double y3, double x4, double y4) {
         //x1=newx1 y1=newy1 //x2=i.x  y2=i.y
         //x3=k.x  y3=k.y //x4=l.x  y4=l.y
@@ -76,28 +75,13 @@ private:
         return false;
     }
 
-
+    // Векторное произведение
     double crossProduct(const Point& A, const Point& B, const Point& C) {
         return (B.x - A.x) * (C.y - A.y) - (B.y - A.y) * (C.x - A.x);
     }
-
-    bool pointInside(double x, double y) {
-        int count = vertices.size();
-        bool inside = false;
-        for (int i = 0; i < count; i++) {
-            int j = (i + 1) % count;
-            if (x == vertices[i].x && y == vertices[i].y) {
-                return true;
-            }
-            if (((vertices[i].y > y) != (vertices[j].y > y)) &&
-                (x < vertices[i].x + (vertices[j].x - vertices[i].x) * (y - vertices[i].y) / (vertices[j].y - vertices[i].y)))
-                inside = not inside;
-        }
-        return inside;
-    }
-
-
-    vector<Point> pointIntersect(polygon polySec) {
+    
+    // Нахождение всех точек пересечения ребер многоугольников
+    vector<Point> pointIntersect(Polygon polySec) {
         vector<Point> intersectVertices;
 
         int count_1 = vertices.size();
@@ -123,10 +107,7 @@ private:
                         double m1 = (vertices[j2].y - vertices[i1].y) / (vertices[j2].x - vertices[i1].x);
                         double m2 = (polySec.vertices[j4].y - polySec.vertices[i3].y) / (polySec.vertices[j4].x - polySec.vertices[i3].x);
 
-                        double b1;
-                        double b2;
-                        double x;
-                        double y;
+                        double b1,b2,x,y;
                         if (isinf(m1)) {
                             b2 = polySec.vertices[i3].y - m2 * polySec.vertices[i3].x;
                             x = vertices[i1].x;
@@ -155,6 +136,7 @@ private:
         return intersectVertices;
     }
 
+    // Удаление повторяющихся вершин
     void removeDuplicates() {
         // Сортируем вектор, чтобы соседние дубликаты стали смежными
         sort(vertices.begin(), vertices.end(),
@@ -172,30 +154,97 @@ private:
         vertices.erase(last, vertices.end());
     }
 
+    // Упорядочивание вершин по часовой стрелке относительно центра
     void orderPointsClockwise() {
         Point center = findPolygonCenter();
 
-        std::sort(vertices.begin(), vertices.end(),
+        sort(vertices.begin(), vertices.end(),
             [this, center](const auto& a, const auto& b) {
                 return calculateAngle(a, center) < calculateAngle(b, center);
             });
     }
 
+    // Нахождение угла поворота точки относительно центра
     double calculateAngle(const Point& point, const Point& center) {
         return atan2(point.y - center.y, point.x - center.x);
     }
 
 public:
     // Конструктор
-    polygon(bool convex = false) : convexity(convex) {}
+    Polygon(bool convex = false) : convexity(convex) {}
 
     // Деструктор
-    ~polygon() = default;
+    ~Polygon() {}
+
+    // Проверка принадлежности точки многоугольнику
+    bool polygonHasPoint(double x, double y) {
+        int count = vertices.size();
+        for (int i = 0; i < count; i++) {
+            if (isPointIsVertex(x, y, vertices[i].x, vertices[i].y)) {
+                cout << "Vertex" << endl;
+                return true;
+            }
+        }
+        for (int i = 0; i < count; i++) {
+            int j = (i + 1) % count;
+            if (isPointOnEdge(x, y, vertices[i].x, vertices[i].y, vertices[j].x, vertices[j].y)) {
+                cout << "Edge" << endl;
+                return true;
+            }
+        }
+        if (isPointInside(x, y)) {
+            cout << "Inside" << endl;
+            return true;
+        }
+        return false;
+    }
+    // Проверка нахождения точки внутри многоугольника
+    bool isPointInside(double x, double y) {
+        int count = vertices.size();
+        bool inside = false;
+        for (int i = 0; i < count; i++) {
+            int j = (i + 1) % count;
+            if (((vertices[i].y > y) != (vertices[j].y > y)) && 
+                (x < vertices[i].x + (vertices[j].x - vertices[i].x) * (y - vertices[i].y) / (vertices[j].y - vertices[i].y)))
+                inside = not inside;
+        }
+        return inside;
+    }
+    // Проверка принадлежности точки ребру
+    bool isPointOnEdge(double x, double y, double x1, double y1, double x2, double y2) {
+        if (x < min(x1, x2) || x > max(x1, x2) || y < min(y1, y2) || y > max(y1, y2)) {
+            return false;
+        }
+
+        if ((x2 - x1) == 0) {
+            double t2 = (y - y1) / (y2 - y1);
+            return t2 >= 0.0 && t2 <= 1.0;
+        }
+        else if ((y2 - y1) == 0) {
+            double t1 = (x - x1) / (x2 - x1);
+            return t1 >= 0.0 && t1 <= 1.0;
+        }
+        else {
+            double t1 = (x - x1) / (x2 - x1);
+            double t2 = (y - y1) / (y2 - y1);
+            return t2 >= 0.0 && t2 <= 1.0 && t1 >= 0.0 && t1 <= 1.0 && abs(t1 - t2) <= 0.00001;
+        }
+    }
+    // Проверка является ли точка вершиной
+    bool isPointIsVertex(double x, double y, double x1, double y1) {
+        double e = 0.00001;
+        if ((abs(x - x1) <= e) && (abs(y - y1) <= e)){
+            return true;
+        }
+        return false;
+    }
+
+
 
     // Проверка выпуклости многоугольника
     bool isConvex() {
-        int n = vertices.size();
-        if (n < 3) {
+        int count = vertices.size();
+        if (count < 3) {
             // Многоугольник с меньшим числом вершин не считается выпуклым
             return false;
         }
@@ -203,8 +252,8 @@ public:
         bool hasPositive = false;
         bool hasNegative = false;
 
-        for (int i = 0; i < n; ++i) {
-            double result = crossProduct(vertices[i], vertices[(i + 1) % n], vertices[(i + 2) % n]);
+        for (int i = 0; i < count; ++i) {
+            double result = crossProduct(vertices[i], vertices[(i + 1) % count], vertices[(i + 2) % count]);
             if (result > 0) {
                 hasPositive = true;
             }
@@ -221,8 +270,8 @@ public:
         // Если знаки одинаковы или все нулевые, то многоугольник выпуклый
         return true;
     }
-
-
+    
+    // Добавление вершины с выбором позиции
     void addVertex(double x, double y) {
         int count = vertices.size();
         if (count == 0) {
@@ -258,7 +307,7 @@ public:
         return;
     }
 
-
+    // Добавление вершины в случайное место
     void addVertexRandom(double x, double y) {
         int count = vertices.size();
         if (count == 0) {
@@ -351,37 +400,97 @@ public:
         cout << "Вершины с такими координатами нет" << endl;
     }
 
-    // Метод для нахождения площади многоугольника
-    double calculateArea() const {
-        if (!convexity) {
-            std::cerr << "Cannot calculate area for a non-convex polygon." << std::endl;
-            return 0.0;
+    bool findVertex(double x, double y) {
+        int count = vertices.size();
+        for (int i = 0; i < count; i++) {
+            int j = (i + 1) % count;
+            if (isPointIsVertex(x, y, vertices[i].x, vertices[i].y)) {
+                cout << "Точка - вершина многоугольника" << endl;
+                return true;
+            }
         }
+        for (int i = 0; i < count; i++) {
+            int j = (i + 1) % count;
+            if (isPointOnEdge(x, y, vertices[i].x, vertices[i].y, vertices[j].x, vertices[j].y)) {
+                cout << "Точка на ребре многоугольника" << endl;
+                return true;
+            }
+        }
+        if (isPointInside(x, y)) {
+            cout << "Точка внутри многоугольника" << endl;
+            return true;
+        }
+        cout << "Точки в многоугольнике нет" << endl;
+        return false;
+    }
 
+
+    void changeVertex(double x, double y, double newX, double newY) {
+        int count = vertices.size();
+        for (int i = 0; i < count; i++) {
+            if (isPointIsVertex(x, y, vertices[i].x, vertices[i].y)) {
+                int i_new = (i + count - 1) % count;
+                int j_new = (i + 1) % count;
+                for (int k1 = 0; k1 < count; k1++) {
+                    int l1 = (k1 + 1) % count;
+                    if ((k1 == i_new) || (l1 == i_new) || (k1 == i) || (l1 == i)) {
+                        continue;
+                    }
+                    if (isIntersect(newX, newY, vertices[i_new].x, vertices[i_new].y, vertices[k1].x, vertices[k1].y, vertices[l1].x, vertices[l1].y)) {
+                        cout << "Невозможно изменить вершину" << endl;
+                        return;
+                    }
+                }
+                for (int k2 = 0; k2 < count; k2++) {
+                    int l2 = (k2 + 1) % count;
+                    if ((k2 == j_new) || (l2 == j_new) || (k2 == i) || (l2 == i)) {
+                        continue;
+                    }
+                    if (isIntersect(newX, newY, vertices[j_new].x, vertices[j_new].y, vertices[k2].x, vertices[k2].y, vertices[l2].x, vertices[l2].y)) {
+                        cout << "Невозможно изменить вершину" << endl;
+                        return;
+                    }
+                }
+                vertices[i].x = newX;
+                vertices[i].y = newY;
+                return;
+            }
+
+        }
+        cout << "Вершины с такими координатами нет" << endl;
+    }
+
+
+    // Нахождение площади многоугольника
+    double calculateArea() const {
         double area = 0.0;
-        int n = vertices.size();
-
-        for (int i = 0; i < n; ++i) {
-            int j = (i + 1) % n;
+        int count = vertices.size();
+        if (count < 3) {
+            return 0;
+        }
+        for (int i = 0; i < count; ++i) {
+            int j = (i + 1) % count;
             area += (vertices[i].x * vertices[j].y - vertices[j].x * vertices[i].y);
         }
 
         /*for (int i = 0; i < n; ++i) {
             int next = (i + 1) % n;
-            int prev = (i - 1) % n
-            area += (vertices[i]->x * vertices[j]->y - vertices[j]->x * vertices[i]->y);
+            int prev = (i + n - 1) % n;
+            area += (vertices[i].x * (vertices[next].y - vertices[prev].y));
         }*/
 
         return abs(area) / 2.0;
     }
 
-    // Метод для нахождения периметра многоугольника
+    // Нахождение периметра многоугольника
     double calculatePerimeter() const {
         double perimeter = 0.0;
-        int n = vertices.size();
-
-        for (int i = 0; i < n; ++i) {
-            int j = (i + 1) % n;
+        int count = vertices.size();
+        if (count < 3) {
+            return 0;
+        }
+        for (int i = 0; i < count; ++i) {
+            int j = (i + 1) % count;
             double dx = vertices[j].x - vertices[i].x;
             double dy = vertices[j].y - vertices[i].y;
             perimeter += sqrt(dx * dx + dy * dy);
@@ -390,11 +499,11 @@ public:
         return perimeter;
     }
 
-    // Метод для вывода многоугольника на экран
+    // Вывода многоугольника на экран
     void printPolygonVertex() const {
         cout << "Polygon vertices:" << endl;
         int count = vertices.size();
-        if (count == 0) {
+        if (count < 3) {
             cout << "Polygon no:" << endl;
             return;
         }
@@ -411,18 +520,19 @@ public:
         cout << "(" << vertices[count-1].x << ", " << vertices[count-1].y << "))" << endl << endl;
     }
 
-    polygon intersectionPolygons(polygon polySec) {
-        polygon intersectionPolygon(true);
+    // Пересечение многоугольников
+    Polygon intersectionPolygons(Polygon polySec) {
+        Polygon intersectionPolygon(true);
         int count_1 = vertices.size();
         int count_2 = polySec.vertices.size();
 
         for (int i = 0; i < count_1; i++) {
-            if (polySec.pointInside(vertices[i].x, vertices[i].y)) {
+            if (polySec.polygonHasPoint(vertices[i].x, vertices[i].y)) {
                 intersectionPolygon.vertices.push_back(vertices[i]);
             }
         }
         for (int j = 0; j < count_2; j++) {
-            if (pointInside(polySec.vertices[j].x, polySec.vertices[j].y)) {
+            if (polygonHasPoint(polySec.vertices[j].x, polySec.vertices[j].y)) {
                 intersectionPolygon.vertices.push_back(polySec.vertices[j]);
             }
         }
@@ -442,19 +552,19 @@ public:
         return intersectionPolygon;
     }
 
-
-    polygon unionPolygons(polygon polySec) {
-        polygon unionPolygon(true);
+    // Объединение многоугольников
+    Polygon unionPolygons(Polygon polySec) {
+        Polygon unionPolygon(true);
         int count_1 = vertices.size();
         int count_2 = polySec.vertices.size();
 
         for (int i = 0; i < count_1; i++) {
-            if (polySec.pointInside(vertices[i].x, vertices[i].y) == false) {
+            if (polySec.polygonHasPoint(vertices[i].x, vertices[i].y) == false) {
                 unionPolygon.vertices.push_back(vertices[i]);
             }
         }
         for (int j = 0; j < count_2; j++) {
-            if (pointInside(polySec.vertices[j].x, polySec.vertices[j].y) == false) {
+            if (polygonHasPoint(polySec.vertices[j].x, polySec.vertices[j].y) == false) {
                 unionPolygon.vertices.push_back(polySec.vertices[j]);
             }
         }
@@ -481,18 +591,18 @@ public:
         return unionPolygon;
     }
 
-
+    // Нахождение центра многоугольника
     Point findPolygonCenter() {
         double centerX = 0.0, centerY = 0.0;
-        int n = vertices.size();
+        int count = vertices.size();
 
         for (auto& vertex : vertices) {
             centerX += vertex.x;
             centerY += vertex.y;
         }
 
-        centerX /= n;
-        centerY /= n;
+        centerX /= count;
+        centerY /= count;
 
         return Point(centerX, centerY);
     }
@@ -541,7 +651,7 @@ int main() {
 
     poly.printPolygonVertex();*/
 
-    /*polygon poly(true);
+    /*Polygon poly(true);
     poly.addVertex(0, 0);
     poly.addVertex(1, 5);
     poly.addVertex(6, 6);
@@ -550,7 +660,7 @@ int main() {
 
     poly.printPolygonVertex();
 
-    polygon poly2(true);
+    Polygon poly2(true);
     poly2.addVertex(3,2);
     poly2.addVertex(7,8);
     poly2.addVertex(12,5);
@@ -561,23 +671,25 @@ int main() {
 
 
 
-    polygon poly(true);
-    poly.addVertex(0, 0);
-    cout << poly.isConvex() << endl;
-    poly.addVertex(5, 1);
-    cout << poly.isConvex() << endl;
-    poly.addVertex(7, 5);
-    cout << poly.isConvex() << endl;
-    poly.addVertex(0, 7);
-    cout << poly.isConvex() << endl;
-    //poly.addVertex(3, 3);
-    poly.addVertex(2, 0);
-    cout << poly.isConvex() << endl;
+    //Polygon poly(true);
+    //poly.addVertex(0, 0);
+    //cout << poly.isConvex() << endl;
+    //poly.addVertex(5, 1);
+    //cout << poly.isConvex() << endl;
+    //poly.addVertex(7, 5);
+    //cout << poly.isConvex() << endl;
+    //poly.addVertex(0, 7);
+    //cout << poly.isConvex() << endl;
+    ////poly.addVertex(3, 3);
+    //poly.addVertex(2, 0);
+    //cout << poly.isConvex() << endl;
 
-    poly.printPolygonVertex();
-    cout << "max:  " << poly.findPolygonCenter().x << " " << poly.findPolygonCenter().y << endl;
+    //poly.printPolygonVertex();
+    //cout << "max:  " << poly.findPolygonCenter().x << " " << poly.findPolygonCenter().y << endl;
 
-    /*polygon poly2(true);
+
+
+    /*Polygon poly2(true);
     poly2.addVertex(4, 3);
     poly2.addVertex(7, 8);
     poly2.addVertex(8, 2);
@@ -591,7 +703,7 @@ int main() {
 
 
 
-    /*polygon poly(true);
+    /*Polygon poly(true);
     poly.addVertex(0, 0);
     poly.addVertex(0, 2);
     poly.addVertex(2, 2);
@@ -599,7 +711,7 @@ int main() {
 
     poly.printPolygonVertex();
 
-    polygon poly2(true);
+    Polygon poly2(true);
     poly2.addVertex(1, 1);
     poly2.addVertex(0.5, 3);
     poly2.addVertex(3, 3);
@@ -612,7 +724,7 @@ int main() {
 
 
 
-    /*polygon poly(true);
+    /*Polygon poly(true);
     poly.addVertex(0, 0);
     poly.addVertex(0, 4);
     poly.addVertex(4, 4);
@@ -620,7 +732,7 @@ int main() {
 
     poly.printPolygonVertex();
 
-    polygon poly2(true);
+    Polygon poly2(true);
     poly2.addVertex(1, 2);
     poly2.addVertex(3, 6);
     poly2.addVertex(7, 6);
@@ -628,9 +740,17 @@ int main() {
 
     poly2.printPolygonVertex();*/
 
+    /*Polygon poly2(true);
+    poly2.addVertex(1, 2);
+    poly2.addVertex(2, 8);
+    poly2.addVertex(3, 6);
+    poly2.addVertex(7, 6);
+    poly2.addVertex(7, 0);
 
+    poly2.printPolygonVertex();
+    cout << poly2.calculateArea() << endl;*/
 
-    /*polygon poly(true);
+    /*Polygon poly(true);
     poly.addVertex(0, 0);
     poly.addVertex(0, 4);
     poly.addVertex(4, 4);
@@ -638,7 +758,7 @@ int main() {
 
     poly.printPolygonVertex();
 
-    polygon poly2(true);
+    Polygon poly2(true);
     poly2.addVertex(4, 4);
     poly2.addVertex(4, 3);
     poly2.addVertex(3, 3);
@@ -648,7 +768,7 @@ int main() {
 
     
 
-    /*polygon poly(true);
+    /*Polygon poly(true);
     poly.addVertex(0, 0);
     poly.addVertex(0, 4);
     poly.addVertex(4, 4);
@@ -656,7 +776,7 @@ int main() {
 
     poly.printPolygonVertex();
 
-    polygon poly2(true);
+    Polygon poly2(true);
     poly2.addVertex(1, 2);
     poly2.addVertex(2, 1);
     poly2.addVertex(2, 2);
@@ -664,7 +784,7 @@ int main() {
 
     poly2.printPolygonVertex();*/
 
-    /*polygon poly(true);
+    /*Polygon poly(true);
     poly.addVertex(0, 0);
     poly.addVertex(0, 4);
     poly.addVertex(4, 4);
@@ -672,7 +792,7 @@ int main() {
 
     poly.printPolygonVertex();
 
-    polygon poly2(true);
+    Polygon poly2(true);
     poly2.addVertex(4, 4);
     poly2.addVertex(4, 8);
     poly2.addVertex(8, 8);
@@ -681,7 +801,7 @@ int main() {
     poly2.printPolygonVertex();*/
 
 
-    /*polygon poly(true);
+    /*Polygon poly(true);
     poly.addVertex(0, 0);
     poly.addVertex(0, 4);
     poly.addVertex(4, 4);
@@ -690,7 +810,7 @@ int main() {
     poly.printPolygonVertex();
     cout << poly.findPolygonCenter().x << " " << poly.findPolygonCenter().y << endl;
 
-    polygon poly2(true);
+    Polygon poly2(true);
     poly2.addVertex(2, 2);
     poly2.addVertex(4, 4);
     poly2.addVertex(6,4);
@@ -700,7 +820,7 @@ int main() {
     cout << poly2.findPolygonCenter().x << " " << poly2.findPolygonCenter().y << endl;
 
 
-    polygon poly3(true);
+    Polygon poly3(true);
     poly3.addVertex(1, 2);
     poly3.addVertex(3, 6);
     poly3.addVertex(7, 6);
@@ -711,7 +831,7 @@ int main() {
     cout << poly3.findPolygonCenter().x << " " << poly3.findPolygonCenter().y << endl;*/
 
     
-    /*polygon poly(true);
+    /*Polygon poly(true);
     poly.addVertex(0, 0);
     poly.addVertex(0, 4);
     poly.addVertex(4, 4);
@@ -719,19 +839,19 @@ int main() {
 
     poly.printPolygonVertex();*/
 
-    //polygon poly2(true);
+    //Polygon poly2(true);
     //poly2.addVertex(1, 2);
     //poly2.addVertex(0.5, 6);
     ////poly2.addVertex(5, 3);
     //poly2.addVertex(7, 0);
 
-    /*polygon poly2(true);
+    /*Polygon poly2(true);
     poly2.addVertex(2, 2);
     poly2.addVertex(4, 4);
     poly2.addVertex(6, 2);
     poly2.addVertex(3, 1);*/
 
-    /*polygon poly2(true);
+    /*Polygon poly2(true);
     poly2.addVertex(4, 0);
     poly2.addVertex(4, 4);
     poly2.addVertex(6, 4);
@@ -739,7 +859,7 @@ int main() {
 
     poly2.printPolygonVertex();*/
 
-    //polygon poly(true);
+    //Polygon poly(true);
     //poly.addVertex(0, 0);
     //poly.addVertex(0, 6);
     //poly.addVertex(3, 6);
@@ -754,7 +874,7 @@ int main() {
     //poly.printPolygonVertex();
     //cout << endl;
 
-    //polygon poly2(true);
+    //Polygon poly2(true);
     //poly2.addVertex(1.2, 3);
     //poly2.addVertex(3, 6);
     //poly2.addVertex(7, 6);
@@ -769,7 +889,7 @@ int main() {
     //cout << endl;
 
 
-    /*polygon poly(true);
+    /*Polygon poly(true);
     poly.addVertex(0, 0);
     poly.addVertex(0, 4);
     poly.addVertex(4, 4);
@@ -782,7 +902,7 @@ int main() {
     poly.printPolygonVertex();
     cout << endl;
 
-    polygon poly2(true);
+    Polygon poly2(true);
     poly2.addVertex(6, 0);
     poly2.addVertex(6, 4);
     poly2.addVertex(10, 4);
@@ -797,7 +917,7 @@ int main() {
 
 
 
-    /*polygon poly(true);
+    /*Polygon poly(true);
     poly.addVertex(0, 0);
     poly.addVertex(0, 4);
     poly.addVertex(4, 4);
@@ -805,7 +925,7 @@ int main() {
 
     poly.printPolygonVertex();
 
-    polygon poly2(true);
+    Polygon poly2(true);
     poly2.addVertex(1, 2);
     poly2.addVertex(3, 6);
     poly2.addVertex(7, 6);
@@ -816,7 +936,29 @@ int main() {
 
 
 
-    //polygon polyInter(true);
+
+
+    //Polygon poly(true);
+    //poly.addVertex(0, 0);
+    //poly.addVertex(0, 4);
+    //poly.addVertex(4, 4);
+    //poly.addVertex(4, 0);
+
+    //poly.printPolygonVertex();
+    //
+
+
+    //Polygon poly2(true);
+    //poly2.addVertex(2, 2);
+    //poly2.addVertex(6, 0);
+    //poly2.addVertex(6, 6);
+    //poly2.addVertex(1, 5);
+
+    //poly2.printPolygonVertex();
+
+
+
+    //Polygon polyInter(true);
 
     //polyInter = poly.intersectionPolygons(poly2);
     //
@@ -829,7 +971,7 @@ int main() {
     //cout << "max" << polyInter.findPolygonCenter().x << " " << polyInter.findPolygonCenter().y << endl;
     //cout << endl;
 
-    //polygon polyUni(true);
+    //Polygon polyUni(true);
 
     //polyUni = poly.unionPolygons(poly2);
     //cout << polyUni.findPolygonCenter().x << " " << polyUni.findPolygonCenter().y << endl;
@@ -842,11 +984,15 @@ int main() {
     //cout << endl;
 
 
+    //cout << "EEEEEEE: " << polyUni.polygonHasPoint(1.33333, 4) << endl;
+    //cout << "EEEEEEE: " << polyUni.polygonHasPoint(1.3333, 4) << endl;
+    //cout << "EEEEEEE: " << polyUni.polygonHasPoint(1.33333, 5) << endl;
+    //cout << "EEEEEEE: " << polyUni.polygonHasPoint(1.33332, 5) << endl;
+    //cout << "EEEEEEE: " << polyUni.polygonHasPoint(4, 4) << endl;
+    //cout << "EEEEEEE: " << polyUni.polygonHasPoint(3, 3) << endl;
 
 
-
-
-    //polygon poly(true);
+    //Polygon poly(true);
     //poly.addVertex(0, 0);
     //poly.addVertex(0, 6);
     //poly.addVertex(3, 6);
@@ -865,7 +1011,7 @@ int main() {
 
 
     /*double x1, y1, x2, y2, x3, y3, x4, y4;
-    polygon poly(true);
+    Polygon poly(true);
 
     x1 = 2;
     y1 = 2;
@@ -893,6 +1039,44 @@ int main() {
     cout << poly.pointInside(2, 0) << endl;
     cout << poly.pointInside(-1, 1) << endl;
     cout << poly.pointInside(3, 1) << endl;*/
+
+
+    Polygon poly3(true);
+    poly3.addVertex(2, 2);
+    poly3.addVertex(6, 0);
+    poly3.addVertex(6, 6);
+    poly3.addVertex(1, 5);
+
+    /*Polygon poly3(true);
+    poly3.addVertex(0, 0);
+    poly3.addVertex(4, 0);
+    poly3.addVertex(4, 4);
+    poly3.addVertex(0, 4);*/
+
+    poly3.printPolygonVertex();
+
+    cout << poly3.polygonHasPoint(6,0) << endl;
+    cout << poly3.polygonHasPoint(4,4) << endl;
+    cout << poly3.polygonHasPoint(5,5.8) << endl;
+    cout << poly3.polygonHasPoint(4,6) << endl;
+    cout << poly3.polygonHasPoint(4, 2) << endl;
+    cout << poly3.polygonHasPoint(2.5,1.75) << endl;
+
+
+
+
+    /*poly3.changeVertex(6, 0, 1, 2);
+
+    poly3.printPolygonVertex();
+
+    poly3.findVertex(7, 8);
+    poly3.findVertex(6, 0);
+    poly3.findVertex(5, 5);
+    poly3.findVertex(4, 1);
+    poly3.findVertex(5, 5.8);*/
+
+
+
 
 
     return 0;
